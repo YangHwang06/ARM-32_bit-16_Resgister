@@ -18,7 +18,7 @@ module arm(input logic clk, reset,
                FlagW, CurrentFlags, MemWrite, MemtoReg, PCSrc);
 
   datapath dp(clk, reset, RegSrc, RegWrite, ImmSrc, ALUSrc,
-              ALUControl, MemtoReg, PCSrc, FlagW, CurrentFlags[1],
+              ALUControl, MemtoReg, PCSrc, CurrentFlags[1],
               ALUFlags, PC, Instr, ALUResult, WriteData, ReadData);
 endmodule
 
@@ -83,42 +83,35 @@ module decoder(input logic [1:0] Op,
 
     case (Op)
       2'b00: begin // Data Processing
-        RegW       = 1'b1;
+        logic is_test;
+        is_test    = (opcode[3:2] == 2'b10); // TST, TEQ, CMP, CMN
+        RegW       = ~is_test;
         ALUControl = opcode;
 
-        // TST, TEQ, CMP, CMN: flags only, no destination write.
-        case (opcode)
-          4'b1000, 4'b1001, 4'b1010, 4'b1011: begin
-            RegW    = 1'b0;
-          end
-          default: ;
-        endcase
-
         // Test instructions always update flags; other DP ops only if S=1.
-        if (S || (opcode >= 4'b1000 && opcode <= 4'b1011)) begin
+        if (S || is_test) begin
           FlagW[3:2] = 2'b11; // N,Z
           case (opcode)
-            4'b0000, 4'b0001, 4'b1100, 4'b1101,
-            4'b1110, 4'b1111, 4'b1000, 4'b1001:
+            4'b0000, // AND
+            4'b0001, // EOR
+            4'b1100, // ORR
+            4'b1101, // MOV
+            4'b1110, // BIC
+            4'b1111, // MVN
+            4'b1000, // TST
+            4'b1001: // TEQ
               FlagW[1:0] = 2'b10; // C from shifter; preserve V
             default:
               FlagW[1:0] = 2'b11; // arithmetic C,V
           endcase
         end
 
-        // MOV/MVN do not use Rn. The ALU ignores SrcA for these opcodes.
-        if (opcode == 4'b1101 || opcode == 4'b1111)
-          RegSrc[0] = 1'b0;
-
-        // Support non-S data-processing writes to PC only.
-        // DP with S=1 and Rd=PC requires exception-return semantics (SPSR),
-        // which this processor does not implement: treat it as unsupported.
         if (Rd == 4'hF) begin
           if (RegW && !S) begin
             PCS = 1'b1;
           end else begin
-            RegW    = 1'b0;
-            FlagW   = 4'b0000;
+            RegW  = 1'b0;
+            FlagW = 4'b0000;
           end
         end
       end
@@ -229,7 +222,6 @@ module datapath(input logic clk, reset,
                 input logic ALUSrc,
                 input logic [3:0] ALUControl,
                 input logic MemtoReg, PCSrc,
-                input logic [3:0] FlagW,
                 input logic CarryFlag,
                 output logic [3:0] ALUFlags,
                 output logic [31:0] PC,
