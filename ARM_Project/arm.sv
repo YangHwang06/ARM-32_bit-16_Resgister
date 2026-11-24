@@ -14,8 +14,7 @@ module arm(input logic clk, reset,
   logic [3:0] FlagW, CurrentFlags;
 
   controller c(clk, reset, Instr[31:12], ALUFlags,
-               RegSrc, RegWrite, ImmSrc, ALUSrc, ALUControl,
-               FlagW, CurrentFlags, MemWrite, MemtoReg, PCSrc);
+               RegSrc, RegWrite, ImmSrc, ALUSrc, ALUControl, CurrentFlags, MemWrite, MemtoReg, PCSrc);
 
   datapath dp(clk, reset, RegSrc, RegWrite, ImmSrc, ALUSrc,
               ALUControl, MemtoReg, PCSrc, CurrentFlags[1],
@@ -33,7 +32,6 @@ module controller(input logic clk, reset,
                   output logic [1:0] ImmSrc,
                   output logic ALUSrc,
                   output logic [3:0] ALUControl,
-                  output logic [3:0] FlagW,
                   output logic [3:0] CurrentFlags,
                   output logic MemWrite, MemtoReg, PCSrc);
   logic PCS, RegW, MemW;
